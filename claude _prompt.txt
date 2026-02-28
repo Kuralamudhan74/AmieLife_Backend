@@ -1,0 +1,382 @@
+You are acting as a Senior .NET Architect building a production-ready E-Commerce Authentication System.
+
+This project is the foundation of a revenue-generating e-commerce platform.
+Security, scalability, and maintainability are mandatory.
+
+📌 PROJECT OBJECTIVE (CURRENT PHASE)
+
+Build ONLY the authentication base module:
+
+Signup
+
+Login
+
+Refresh Token
+
+Logout
+
+Password Reset
+
+Guest User Creation
+
+DO NOT build product, cart, or order modules yet.
+
+🧱 TECH STACK
+
+Frontend: React (handled by another team)
+Backend: .NET 8 Web API (Clean Architecture)
+Database: SQL Server (Azure-ready)
+ORM: EF Core (Code First OR Database First — choose the best professional approach)
+Authentication: JWT + Refresh Tokens
+Password Hashing: BCrypt
+Deployment target: Azure App Service
+Logging: Serilog
+Validation: FluentValidation
+
+🏗 ARCHITECTURE REQUIREMENTS
+
+Use Clean Architecture with strict separation:
+
+src/
+ ├── Api
+ ├── Application
+ ├── Domain
+ ├── Infrastructure
+ ├── Shared
+
+Follow principles:
+
+SOLID
+
+Dependency Injection
+
+No business logic inside controllers
+
+No direct DB access inside controllers
+
+DTOs must be used
+
+Domain models must not be exposed directly
+
+🗂 REQUIRED FOLDER STRUCTURE
+
+Root:
+
+/src
+/sql
+/docs
+/tests
+
+Inside /sql:
+
+/sql/tables
+/sql/stored-procedures
+/sql/indexes
+/sql/seeds
+
+Every table must have:
+
+Primary Key
+
+Foreign Keys
+
+Indexes
+
+Soft delete strategy (if applicable)
+
+CreatedAt / UpdatedAt
+
+🗃 DATABASE STRUCTURE
+
+Use the following schema:
+
+(Claude must implement exactly this schema)
+
+Users
+RefreshTokens
+Addresses
+EmailVerificationTokens
+PasswordResetTokens
+
+Guest users must be stored in Users table:
+
+Email = user provided
+PasswordHash = NULL
+IsGuest = TRUE
+Role = 'Customer'
+IsEmailVerified = FALSE
+
+Important:
+
+TokenHash must store hashed token (never raw)
+
+Index Email (unique)
+
+Index UserId on all FK tables
+
+Add proper constraints
+
+🔐 SECURITY REQUIREMENTS (MANDATORY)
+
+Implement:
+
+JWT Access Token (15 min expiry)
+
+Refresh Token rotation
+
+Store refresh tokens hashed in DB
+
+Lock account after 5 failed attempts
+
+Lockout duration 15 minutes
+
+Generic login error message
+
+Password complexity validation
+
+Rate limiting on login endpoint
+
+CORS restricted to frontend domain
+
+HTTPS enforced
+
+Never expose stack traces
+
+Role-based authorization
+
+Soft-delete protection
+
+🔄 TOKEN STRATEGY
+
+Access Token:
+
+Contains UserId, Email, Role
+
+Short lived
+
+Refresh Token:
+
+Long lived (7–14 days)
+
+Stored hashed
+
+Rotated on refresh
+
+Revoked on logout
+
+📧 EMAIL FLOWS
+
+Signup:
+
+Create user
+
+Generate verification token
+
+Send email (Not to implement now just verify )
+
+Only allow login if verified
+
+Password Reset:
+
+Generate reset token
+
+Send email (not to implement now)
+
+Validate token
+
+Update password
+
+Invalidate old refresh tokens
+
+🧪 TESTING REQUIREMENTS
+
+Unit tests for Application layer
+
+Integration tests for Auth endpoints
+
+Cover edge cases:
+
+Locked account
+
+Expired token
+
+Revoked token
+
+Guest login attempt
+
+📝 DOCUMENTATION REQUIREMENT (CRITICAL)
+
+Create /docs/system-architecture.md
+
+This file must:
+
+Explain system architecture
+
+Explain authentication flow
+
+Explain database design
+
+Explain token lifecycle
+
+Explain folder structure
+
+Explain security strategy
+
+Explain environment configuration
+
+Explain how to extend system
+
+Explain future scalability plan
+
+This file must be written so that:
+
+👉 Another AI agent or developer can understand the entire system from scratch.
+
+Every time new code is added, this markdown file must be updated.
+
+📌 CODING STANDARDS
+
+Use async/await everywhere
+
+No hardcoded secrets
+
+Use environment variables
+
+Use proper exception handling middleware
+
+Return proper HTTP status codes
+
+Follow REST principles
+
+Add XML comments for public methods
+
+Add logging for critical actions
+
+🚫 STRICTLY DO NOT
+
+Do not use insecure password hashing
+
+Do not store plain tokens
+
+Do not expose DB entities directly
+
+Do not skip validation
+
+Do not put business logic in controllers
+
+Do not create monolithic service classes
+
+📈 FUTURE PHASE (DO NOT IMPLEMENT YET)
+
+OAuth login (Google)
+
+2FA
+
+Admin management
+
+Product module
+
+Order module
+
+Payment integration
+
+But design current system in a way that those features can be easily added.
+
+🎯 EXPECTED OUTPUT FROM CLAUDE
+
+Claude must:
+
+Generate project structure
+
+Generate SQL scripts inside /sql
+
+Implement authentication module only
+
+Implement secure JWT flow
+
+Implement refresh token rotation
+
+Create professional error handling
+
+Create /docs/system-architecture.md
+
+Write clean, maintainable, production-level code
+
+🔥 QUALITY LEVEL EXPECTATION
+
+This must look like:
+
+Enterprise SaaS grade
+
+Bank-level security mindset
+
+Production-ready
+
+Not tutorial-level code
+
+Not beginner-level architecture
+
+Users
+------
+UserId UUID PRIMARY KEY
+Email VARCHAR(255) UNIQUE NOT NULL
+PhoneNumber VARCHAR(20) NULL
+PasswordHash TEXT NULL
+FirstName VARCHAR(100) NULL
+LastName VARCHAR(100) NULL
+Role VARCHAR(20) NOT NULL DEFAULT 'Customer'
+IsEmailVerified BOOLEAN NOT NULL DEFAULT FALSE
+IsGuest BOOLEAN NOT NULL DEFAULT FALSE
+FailedLoginAttempts INT NOT NULL DEFAULT 0
+LockoutEndTime TIMESTAMP NULL
+Status VARCHAR(20) NOT NULL DEFAULT 'Active'
+CreatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+UpdatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+
+RefreshTokens
+--------------
+RefreshTokenId UUID PRIMARY KEY
+UserId UUID REFERENCES Users(UserId)
+TokenHash TEXT NOT NULL
+ExpiresAt TIMESTAMP NOT NULL
+IsRevoked BOOLEAN NOT NULL DEFAULT FALSE
+CreatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+
+Addresses
+----------
+AddressId UUID PRIMARY KEY
+UserId UUID REFERENCES Users(UserId)
+FullName VARCHAR(150) NOT NULL
+PhoneNumber VARCHAR(20) NOT NULL
+AddressLine1 VARCHAR(255) NOT NULL
+AddressLine2 VARCHAR(255) NULL
+City VARCHAR(100) NOT NULL
+State VARCHAR(100) NOT NULL
+PostalCode VARCHAR(20) NOT NULL
+Country VARCHAR(100) NOT NULL
+IsDefault BOOLEAN NOT NULL DEFAULT FALSE
+CreatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+
+EmailVerificationTokens
+------------------------
+TokenId UUID PRIMARY KEY
+UserId UUID REFERENCES Users(UserId)
+TokenHash TEXT NOT NULL
+ExpiresAt TIMESTAMP NOT NULL
+IsUsed BOOLEAN NOT NULL DEFAULT FALSE
+CreatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+
+PasswordResetTokens
+--------------------
+ResetId UUID PRIMARY KEY
+UserId UUID REFERENCES Users(UserId)
+TokenHash TEXT NOT NULL
+ExpiresAt TIMESTAMP NOT NULL
+IsUsed BOOLEAN NOT NULL DEFAULT FALSE
+CreatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+
+Email = user provided email
+PasswordHash = NULL
+IsGuest = TRUE
+Role = 'Customer'
+IsEmailVerified = FALSE

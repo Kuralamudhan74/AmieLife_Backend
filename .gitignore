@@ -1,0 +1,38 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.userprefs
+
+## Secrets — NEVER commit these
+appsettings.Development.json
+appsettings.Local.json
+secrets.json
+.env
+.env.*
+!.env.example
+
+## Logs
+logs/
+*.log
+
+## EF Core migration bundles
+*.migrationsql
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Test results
+TestResults/
+coverage/
+*.coverage
+
+## Rider / JetBrains
+.idea/
+*.sln.iml
+
+## Rider
+.idea

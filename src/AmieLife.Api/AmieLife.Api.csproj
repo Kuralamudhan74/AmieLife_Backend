@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>AmieLife.Api</RootNamespace>
+    <UserSecretsId>amielife-api-secrets</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Rate Limiting is built into Microsoft.AspNetCore.App (no separate package needed in .NET 7+) -->
+
+    <!-- Serilog -->
+    <PackageReference Include="Serilog.AspNetCore" Version="8.0.3" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
+    <PackageReference Include="Serilog.Enrichers.Environment" Version="3.0.1" />
+
+    <!-- Swagger / OpenAPI -->
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.9.0" />
+
+    <!-- FluentValidation ASP.NET Core integration -->
+    <PackageReference Include="FluentValidation.AspNetCore" Version="11.3.0" />
+
+    <!-- Health Checks EF Core extension -->
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="8.0.10" />
+
+    <!-- EF Core Design tools (required for dotnet ef migrations in this startup project) -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.10">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AmieLife.Application\AmieLife.Application.csproj" />
+    <ProjectReference Include="..\AmieLife.Infrastructure\AmieLife.Infrastructure.csproj" />
+    <ProjectReference Include="..\AmieLife.Shared\AmieLife.Shared.csproj" />
+  </ItemGroup>
+</Project>
