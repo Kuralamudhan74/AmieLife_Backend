@@ -5,21 +5,16 @@ using Microsoft.Extensions.Logging;
 namespace AmieLife.Infrastructure.Services;
 
 /// <summary>
-/// STUB email service. Logs the token to the console for local development.
-/// Replace this with SendGrid / SMTP / AWS SES in production.
-///
-/// To implement real email:
-/// 1. Install SendGrid NuGet package
-/// 2. Inject IConfiguration to read Smtp:ApiKey / SendGrid:ApiKey
-/// 3. Build HTML email templates
-/// 4. Send via the provider SDK
+/// Console-only email service for local development when SMTP is not configured.
+/// Logs verification/reset URLs to the console — no emails are sent.
+/// Used when Smtp:Enabled is false (default).
 /// </summary>
-public sealed class EmailService : IEmailService
+public sealed class ConsoleEmailService : IEmailService
 {
-    private readonly ILogger<EmailService> _logger;
+    private readonly ILogger<ConsoleEmailService> _logger;
     private readonly IConfiguration _configuration;
 
-    public EmailService(ILogger<EmailService> logger, IConfiguration configuration)
+    public ConsoleEmailService(ILogger<ConsoleEmailService> logger, IConfiguration configuration)
     {
         _logger = logger;
         _configuration = configuration;
@@ -30,7 +25,6 @@ public sealed class EmailService : IEmailService
         var baseUrl = _configuration["App:BaseUrl"] ?? "http://localhost:3000";
         var verifyUrl = $"{baseUrl}/verify-email?token={Uri.EscapeDataString(rawToken)}";
 
-        // In production replace with real email dispatch
         _logger.LogInformation(
             "[EMAIL STUB] Verification email to {Email}. URL: {VerifyUrl}",
             toEmail, verifyUrl);

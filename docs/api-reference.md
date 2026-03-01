@@ -175,3 +175,87 @@ Create a guest user for checkout.
 - At least one lowercase letter
 - At least one digit
 - At least one special character (`!@#$%^&*` etc.)
+
+---
+
+## Frontend Integration Guide
+
+> This section is for the **frontend team** to understand how to integrate with the auth API.
+
+### Token Storage
+
+| Token | Where to Store | Why |
+|---|---|---|
+| **Access Token** | In-memory variable (React state / JS variable) | Short-lived (15 min). Never in localStorage (XSS risk). |
+| **Refresh Token** | HttpOnly secure cookie or secure mobile storage | Long-lived (14 days). HttpOnly prevents JS access. |
+
+### Authentication Header
+
+For all protected API calls, include the access token:
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+```
+
+### Refresh Token Flow (How to Use)
+
+The refresh token keeps the user logged in without re-entering credentials.
+
+```
+1. User logs in → receives accessToken (15 min) + refreshToken (14 days)
+2. Frontend stores both tokens securely (see table above)
+3. Frontend uses accessToken in Authorization header for all API calls
+4. When API returns 401 (access token expired):
+   a. Frontend calls POST /api/v1/auth/refresh  { "refreshToken": "stored_token" }
+   b. API returns NEW accessToken + NEW refreshToken
+   c. Frontend replaces BOTH stored tokens with the new ones
+   d. Frontend retries the original failed request with the new access token
+5. If /refresh also returns 401 → refresh token is expired/revoked → redirect to login
+6. On logout → call POST /api/v1/auth/logout  { "refreshToken": "stored_token" }
+```
+
+### Recommended Frontend Implementation
+
+```
+// Pseudocode for an API interceptor (Axios / fetch wrapper)
+
+async function apiCall(url, options) {
+    let response = await fetch(url, {
+        ...options,
+        headers: { "Authorization": `Bearer ${accessToken}` }
+    });
+
+    if (response.status === 401) {
+        // Access token expired — try refreshing
+        const refreshResponse = await fetch("/api/v1/auth/refresh", {
+            method: "POST",
+            body: JSON.stringify({ refreshToken: storedRefreshToken })
+        });
+
+        if (refreshResponse.ok) {
+            const { accessToken: newAccess, refreshToken: newRefresh } = await refreshResponse.json();
+            // Update stored tokens (IMPORTANT: replace BOTH)
+            accessToken = newAccess;
+            storedRefreshToken = newRefresh;
+            // Retry original request with new token
+            response = await fetch(url, {
+                ...options,
+                headers: { "Authorization": `Bearer ${newAccess}` }
+            });
+        } else {
+            // Refresh token also invalid — force re-login
+            redirectToLogin();
+        }
+    }
+
+    return response;
+}
+```
+
+### Key Rules for Frontend
+
+1. **Always replace both tokens** after a refresh — the old refresh token is revoked immediately
+2. **Never reuse a refresh token** — each token can only be used once (rotation security)
+3. **Logout clears tokens** — call `/logout` AND delete locally stored tokens
+4. **401 from `/refresh`** = session fully expired → redirect to login page
+5. **Access token is NOT sent to `/refresh`** — only the refresh token is needed
+6. **Guest users** get only an access token (15 min, no refresh) — intended for checkout flow only

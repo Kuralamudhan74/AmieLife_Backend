@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(dotnet ef migrations add:*)",
-      "Bash(dotnet build:*)"
+      "Bash(dotnet build:*)",
+      "Bash(taskkill:*)",
+      "Bash(netstat:*)"
     ]
   }
 }

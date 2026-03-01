@@ -5,16 +5,27 @@
 
 ---
 
+## Email Delivery Mode
+
+The API supports two email delivery modes, controlled by `Smtp:Enabled` in configuration:
+
+| Mode | Config | Where tokens appear |
+|---|---|---|
+| **Real SMTP** (default for dev) | `Smtp:Enabled = true` | Check your **actual email inbox** (via Brevo) |
+| **Console stub** (fallback) | `Smtp:Enabled = false` | Check the **API console/terminal logs** |
+
+> To switch modes, change `Smtp:Enabled` in `appsettings.Development.json` and restart.
+
 ## Complete Flow Order
 
 ```
 1. /signup          → Create account
-2. /verify-email    → Confirm email (get token from console logs)
+2. /verify-email    → Confirm email (token arrives via email or console, see above)
 3. /login           → Get access + refresh tokens
 4. /refresh         → Renew tokens silently (client-side, when access token expires)
 5. /logout          → End session
 6. /forgot-password → Request password reset
-7. /reset-password  → Set new password
+7. /reset-password  → Set new password (token arrives via email or console)
 8. /guest           → (Independent) Guest checkout flow
 ```
 
@@ -42,15 +53,19 @@
 **What happens:**
 - User is created in DB with `is_email_verified = false`
 - A verification token is generated (hashed, stored in DB)
-- The raw token URL is **logged to the console** (stub email)
+- A verification email is sent (via SMTP or logged to console, depending on config)
 
-**Check the console log — you will see:**
+**If `Smtp:Enabled = true` (real email via Brevo):**
+Check the email inbox for `testuser@example.com` — you will receive a professional HTML email with a "Verify Email Address" button. The verification token is embedded in the button URL.
+
+**If `Smtp:Enabled = false` (console fallback):**
+Check the API console log — you will see:
 ```
 [EMAIL STUB] Verification email to testuser@example.com.
 URL: http://localhost:3000/verify-email?token=RAW_TOKEN_HERE
 ```
 
-**Copy the token value** from the `?token=` parameter. You need it in Step 2.
+**Copy the token value** from the `?token=` parameter (in the email link or console URL). You need it in Step 2.
 
 **Expected response (200):**
 ```json
@@ -63,7 +78,7 @@ URL: http://localhost:3000/verify-email?token=RAW_TOKEN_HERE
 
 **POST** `/api/v1/auth/verify-email`
 
-Take the token from Step 1 console log:
+Take the token from Step 1 (from the email link or console log):
 ```json
 {
   "token": "PASTE_THE_TOKEN_FROM_CONSOLE_LOG_HERE"
@@ -160,13 +175,17 @@ Take the token from Step 1 console log:
 }
 ```
 
-**Check the console log — you will see:**
+**If `Smtp:Enabled = true` (real email via Brevo):**
+Check the email inbox — you will receive a "Reset Password" email with a button link.
+
+**If `Smtp:Enabled = false` (console fallback):**
+Check the API console log:
 ```
 [EMAIL STUB] Password reset email to testuser@example.com.
 URL: http://localhost:3000/reset-password?token=RAW_RESET_TOKEN_HERE
 ```
 
-**Copy the token value** from `?token=` — needed in Step 7.
+**Copy the token value** from `?token=` (email link or console URL) — needed in Step 7.
 
 **Expected response (200):**
 ```json
@@ -332,7 +351,7 @@ Full script: `sql/cleanup/reset_test_database.sql`
 ## Token Flow Diagram
 
 ```
-Signup → [check console log for token] → Verify Email
+Signup → [check email inbox or console for token] → Verify Email
                                               ↓
                                            Login
                                           ↙     ↘

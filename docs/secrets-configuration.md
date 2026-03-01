@@ -27,6 +27,13 @@ In production, **only use environment variables**. The `appsettings.json` in thi
 | `Jwt__Audience` | string | JWT `aud` claim | `AmieLife-Users` |
 | `Cors__AllowedOrigins__0` | string | First allowed frontend origin | `https://amielife.com` |
 | `App__BaseUrl` | string | Frontend base URL for email links | `https://amielife.com` |
+| `Smtp__Enabled` | bool | Enable real SMTP email delivery | `true` |
+| `Smtp__Host` | string | SMTP server hostname | `smtp-relay.brevo.com` |
+| `Smtp__Port` | int | SMTP port (587=StartTLS, 465=SSL) | `587` |
+| `Smtp__Username` | string | SMTP authentication username | Your Brevo login email |
+| `Smtp__Password` | string | SMTP authentication password/key | Your Brevo SMTP key |
+| `Smtp__FromEmail` | string | Sender email address | `noreply@amielife.com` |
+| `Smtp__FromName` | string | Sender display name | `AmieLife` |
 | `ASPNETCORE_ENVIRONMENT` | string | Runtime environment | `Production` |
 
 ---
@@ -84,6 +91,13 @@ openssl rand -base64 64
    Jwt__Audience = AmieLife-Users
    Cors__AllowedOrigins__0 = https://your-frontend.com
    App__BaseUrl = https://your-frontend.com
+   Smtp__Enabled = true
+   Smtp__Host = smtp-relay.brevo.com
+   Smtp__Port = 587
+   Smtp__Username = your-brevo-login-email
+   Smtp__Password = your-brevo-smtp-key
+   Smtp__FromEmail = noreply@amielife.com
+   Smtp__FromName = AmieLife
    ```
 3. Render sets `PORT` automatically — the app reads it via `ASPNETCORE_URLS`.
 
@@ -135,6 +149,7 @@ az webapp config appsettings set \
 |---|---|
 | `Jwt__Secret` | On suspected compromise, or every 6 months |
 | DB Password | On team member departure or compromise |
+| `Smtp__Password` | On SMTP key compromise or provider change |
 | Refresh tokens | Automatic (rotation on every use) |
 
 When rotating `Jwt__Secret`:

@@ -35,3 +35,4 @@ coverage/
 
 ## Rider
 .idea
+/src/AmieLife.Api/appsettings.Development.json

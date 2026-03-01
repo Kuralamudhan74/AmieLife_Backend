@@ -30,6 +30,14 @@
 
     <!-- Extensions -->
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="8.0.0" />
+
+    <!-- SMTP Email -->
+    <PackageReference Include="MailKit" Version="4.9.0" />
+  </ItemGroup>
+
+  <!-- Embed HTML email templates -->
+  <ItemGroup>
+    <EmbeddedResource Include="Templates\*.html" />
   </ItemGroup>
 
   <ItemGroup>

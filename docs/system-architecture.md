@@ -31,8 +31,8 @@ AmieLife is an e-commerce platform. This repository contains the **backend API**
 
 **Current Phase:** Authentication Module only.
 - Signup, Login, Refresh Token, Logout
-- Email Verification (token generation + stub email)
-- Password Reset (token generation + stub email)
+- Email Verification (token generation + real SMTP email via Brevo)
+- Password Reset (token generation + real SMTP email via Brevo)
 - Guest User Creation (checkout without registration)
 
 **Not yet implemented** (see [Future Phase](#11-future-scalability-plan)):
@@ -53,6 +53,7 @@ AmieLife is an e-commerce platform. This repository contains the **backend API**
 | Auth | JWT Bearer + Refresh Token Rotation |
 | Password Hashing | BCrypt.Net (work factor 12) |
 | Validation | FluentValidation 11 |
+| Email (Dev) | MailKit + Brevo SMTP (300/day free) |
 | Logging | Serilog (Console + File) |
 | Rate Limiting | ASP.NET Core built-in RateLimiter |
 | Testing | xUnit + Moq + FluentAssertions |
@@ -127,14 +128,22 @@ AmieLife_Backend/
 │   │   ├── Enums/                        ← UserRole, UserStatus
 │   │   └── Exceptions/                   ← DomainException, NotFoundException, etc.
 │   │
-│   ├── AmieLife.Infrastructure/          ← EF Core, JWT, BCrypt
+│   ├── AmieLife.Infrastructure/          ← EF Core, JWT, BCrypt, SMTP
 │   │   ├── Data/
 │   │   │   ├── AppDbContext.cs
 │   │   │   └── Configurations/           ← IEntityTypeConfiguration per table
+│   │   ├── Options/
+│   │   │   └── SmtpSettings.cs           ← Strongly-typed SMTP config
 │   │   ├── Repositories/                 ← EF Core implementations
-│   │   └── Services/
-│   │       ├── TokenService.cs           ← JWT generation
-│   │       └── EmailService.cs           ← Email stub (replace with SendGrid)
+│   │   ├── Services/
+│   │   │   ├── TokenService.cs           ← JWT generation
+│   │   │   ├── SmtpEmailService.cs       ← Real SMTP email via MailKit
+│   │   │   ├── ConsoleEmailService.cs    ← Console stub (fallback)
+│   │   │   ├── EmailTemplateService.cs   ← HTML template rendering
+│   │   │   └── IEmailTemplateService.cs  ← Internal template interface
+│   │   └── Templates/
+│   │       ├── EmailVerification.html    ← HTML email template
+│   │       └── PasswordReset.html        ← HTML email template
 │   │
 │   └── AmieLife.Shared/                  ← No project dependencies
 │       ├── Constants/AppConstants.cs
@@ -172,7 +181,9 @@ Client → POST /api/v1/auth/signup
     → BCrypt.HashPassword(password, workFactor=12)
     → Save User (IsEmailVerified=false)
     → Generate random token → SHA-256 hash → Save EmailVerificationToken
-    → EmailService.SendEmailVerificationAsync() [STUB - logs URL]
+    → IEmailService.SendEmailVerificationAsync()
+      → If Smtp:Enabled=true: sends real HTML email via MailKit/Brevo
+      → If Smtp:Enabled=false: logs URL to console (fallback)
   ← 200 OK: "Check your email to verify"
   NOTE: No tokens returned until email is verified
 ```
@@ -224,7 +235,7 @@ Client → POST /api/v1/auth/logout  { refreshToken: "raw_token" }
 ```
 Client → POST /api/v1/auth/forgot-password  { email }
   → Always returns 200 (anti-enumeration)
-  → If user found: generate reset token → store hash → stub email
+  → If user found: generate reset token → store hash → send email (SMTP or console stub)
 
 Client → POST /api/v1/auth/reset-password  { token, newPassword, confirmNewPassword }
   → Hash token → find in DB
@@ -305,6 +316,55 @@ See also: [database-schema.md](./database-schema.md)
 
 ---
 
+## 8b. Email Subsystem
+
+The email service uses a **toggle pattern** — a single config value (`Smtp:Enabled`) switches between real SMTP and console stub.
+
+### Architecture
+
+```
+IEmailService (Application layer — interface)
+    ├── SmtpEmailService (Infrastructure)    ← When Smtp:Enabled = true
+    │       Uses MailKit SmtpClient
+    │       Calls IEmailTemplateService for HTML rendering
+    │       Works with ANY SMTP provider (Brevo, SendGrid, AWS SES, Gmail)
+    │
+    └── ConsoleEmailService (Infrastructure) ← When Smtp:Enabled = false
+            Logs token URLs to console (safe fallback for local dev)
+```
+
+### Email Templates
+
+HTML templates are **embedded resources** compiled into the DLL:
+- `Templates/EmailVerification.html` — verify-email button + 24-hour expiry
+- `Templates/PasswordReset.html` — reset-password button + 30-minute expiry
+
+Templates use `{{PLACEHOLDER}}` substitution (server-generated values only).
+
+### SMTP Provider Quick-Start
+
+| Provider | Host | Free Tier | Config |
+|---|---|---|---|
+| **Brevo** (current dev) | `smtp-relay.brevo.com` | 300 emails/day | Username = login email, Password = SMTP key |
+| **SendGrid** | `smtp.sendgrid.net` | 100 emails/day | Username = `apikey`, Password = API key |
+| **Gmail** | `smtp.gmail.com` | ~500/day | Requires 2FA + App Password |
+| **AWS SES** | `email-smtp.{region}.amazonaws.com` | Pay-per-use | IAM SMTP credentials |
+
+**Swapping providers** = change `Smtp:Host`, `Smtp:Username`, `Smtp:Password` in config. Zero code changes.
+
+### DI Registration Logic
+
+```csharp
+if (Smtp:Enabled == true)
+    → Register SmtpSettings (Options pattern)
+    → Register EmailTemplateService (Singleton — loads templates once)
+    → Register SmtpEmailService as IEmailService (Scoped)
+else
+    → Register ConsoleEmailService as IEmailService (Scoped)
+```
+
+---
+
 ## 9. Environment Configuration
 
 All secrets are injected via **environment variables** at runtime. The `appsettings.json` contains only safe defaults and structure.
@@ -319,6 +379,12 @@ All secrets are injected via **environment variables** at runtime. The `appsetti
 | `Jwt__Audience` | `AmieLife-Users` | JWT audience claim |
 | `Cors__AllowedOrigins__0` | `https://amielife.com` | Frontend URL(s) |
 | `App__BaseUrl` | `https://amielife.com` | Used to build email links |
+| `Smtp__Enabled` | `true` | Enable real SMTP email delivery |
+| `Smtp__Host` | `smtp-relay.brevo.com` | SMTP server hostname |
+| `Smtp__Port` | `587` | SMTP port (587=StartTLS, 465=SSL) |
+| `Smtp__Username` | your SMTP login | SMTP authentication username |
+| `Smtp__Password` | your SMTP key | SMTP authentication password |
+| `Smtp__FromEmail` | `noreply@amielife.com` | Sender email address |
 | `ASPNETCORE_ENVIRONMENT` | `Production` | Controls log levels and Swagger visibility |
 
 See [secrets-configuration.md](./secrets-configuration.md) for platform-specific setup.

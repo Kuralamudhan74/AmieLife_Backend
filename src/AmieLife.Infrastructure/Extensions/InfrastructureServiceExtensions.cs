@@ -1,5 +1,6 @@
 using AmieLife.Application.Common.Interfaces;
 using AmieLife.Infrastructure.Data;
+using AmieLife.Infrastructure.Options;
 using AmieLife.Infrastructure.Repositories;
 using AmieLife.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
@@ -40,7 +41,20 @@ public static class InfrastructureServiceExtensions
 
         // ── Services ────────────────────────────────────────────────────────
         services.AddScoped<ITokenService, TokenService>();
-        services.AddScoped<IEmailService, EmailService>();
+
+        // ── Email Service (conditional: real SMTP or console stub) ──────────
+        var smtpEnabled = configuration.GetValue<bool>("Smtp:Enabled");
+
+        if (smtpEnabled)
+        {
+            services.Configure<SmtpSettings>(configuration.GetSection(SmtpSettings.SectionName));
+            services.AddSingleton<IEmailTemplateService, EmailTemplateService>();
+            services.AddScoped<IEmailService, SmtpEmailService>();
+        }
+        else
+        {
+            services.AddScoped<IEmailService, ConsoleEmailService>();
+        }
 
         return services;
     }
