@@ -128,6 +128,28 @@ public class AuthController : ControllerBase
         return Ok(new MessageResponseDto("Email verified successfully. You may now log in."));
     }
 
+    /// <summary>
+    /// GET endpoint for direct email link verification.
+    /// When App:BaseUrl points to the API, clicking the email link hits this endpoint directly.
+    /// In production (with a frontend), this endpoint is not used — the frontend handles the link instead.
+    /// </summary>
+    [HttpGet("verify-email")]
+    [AllowAnonymous]
+    [ApiExplorerSettings(IgnoreApi = true)] // Hide from Swagger — dev-only convenience
+    public async Task<IActionResult> VerifyEmailFromLink([FromQuery] string token, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+            return Content(BuildHtmlPage("Verification Failed", "No token provided.", false), "text/html");
+
+        var result = await _authService.VerifyEmailAsync(new VerifyEmailRequestDto(token), ct);
+
+        return Content(
+            result.IsSuccess
+                ? BuildHtmlPage("Email Verified!", "Your email has been verified successfully. You may now log in.", true)
+                : BuildHtmlPage("Verification Failed", result.Error ?? "The verification link is invalid or has expired.", false),
+            "text/html");
+    }
+
     /// <summary>Request a password reset email.</summary>
     /// <response code="200">Always returns success to prevent email enumeration.</response>
     [HttpPost("forgot-password")]
@@ -180,6 +202,26 @@ public class AuthController : ControllerBase
             return BadRequest(new ProblemDetails { Status = 400, Title = "Guest Creation Failed", Detail = result.Error });
 
         return Ok(result.Data);
+    }
+
+    /// <summary>Builds a simple branded HTML response page for email link endpoints.</summary>
+    private static string BuildHtmlPage(string title, string message, bool success)
+    {
+        var color = success ? "#22c55e" : "#ef4444";
+        var icon = success ? "&#10003;" : "&#10007;";
+        return $"""
+            <!DOCTYPE html>
+            <html lang="en">
+            <head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>{title}</title></head>
+            <body style="margin:0;padding:0;background:#f4f4f7;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;">
+              <div style="background:#fff;border-radius:12px;padding:48px;max-width:480px;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,0.08);">
+                <div style="width:64px;height:64px;border-radius:50%;background:{color};color:#fff;font-size:32px;line-height:64px;margin:0 auto 24px;">{icon}</div>
+                <h1 style="margin:0 0 12px;color:#1a1a2e;font-size:24px;">{title}</h1>
+                <p style="margin:0;color:#4a4a68;font-size:16px;line-height:1.6;">{message}</p>
+              </div>
+            </body>
+            </html>
+            """;
     }
 }
 
