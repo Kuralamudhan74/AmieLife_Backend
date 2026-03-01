@@ -7,7 +7,6 @@ obj/
 *.userprefs
 
 ## Secrets — NEVER commit these
-appsettings.Development.json
 appsettings.Local.json
 secrets.json
 .env
